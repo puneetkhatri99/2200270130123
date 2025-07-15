@@ -36,9 +36,10 @@ const UrlShortener = () => {
           validity: url.validity ? parseInt(url.validity) : undefined,
           shortcode: url.shortcode || undefined
         },
-      {
-        withCredentials: true
-      });
+      // {
+      //   withCredentials: true
+      // }
+    );
       });
       const responses = await Promise.all(promises);
       const data = responses.map(res => res.data);

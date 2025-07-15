@@ -7,10 +7,7 @@ import dayjs from 'dayjs';
 const app = express();
 app.use(express.json());
 
-app.use(cors({
-   origin: true,
-  credentials: true
-}));
+app.use(cors());
 
 // In-memory store (mock DB)
 const urls = new Map();

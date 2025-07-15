@@ -1,0 +1,6 @@
+node_modules/
+npm-debug.log
+
+Backend_Test_Submission/node_modules/
+Frontend_Test_Submission/node_modules/
+Logging_Middleware/node_modules/

@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { TextField, Button, Container, Typography, Grid, Paper, Box, Divider, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import axios from 'axios';
+import {Log} from './logger'; 
 
 const UrlShortener = () => {
   const [urls, setUrls] = useState([{ originalUrl: '', validity: '', shortcode: '' }]);
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState([]);
 
-  const handleChange = (index, field, value) => {
+   const handleChange = (index, field, value) => {
     const newUrls = [...urls];
     newUrls[index][field] = value;
     setUrls(newUrls);
+    Log('frontend', 'info', 'handleChange', `Changed ${field} for index ${index}`);
   };
 
   const validateUrl = (url) => {
@@ -25,26 +27,28 @@ const UrlShortener = () => {
     );
 
     if (!validated) {
+      await Log('frontend', 'error', 'validator', 'Validation failed before submitting');
       alert('Validation failed: Make sure all URLs are valid and validity (if present) is a number.');
       return;
     }
 
     try {
+      await Log('frontend', 'info', 'submit', 'Submitting URL list to backend');
       const promises = urls.map(url => {
         return axios.post('http://localhost:5000/shorturls', {
           url: url.originalUrl,
           validity: url.validity ? parseInt(url.validity) : undefined,
           shortcode: url.shortcode || undefined
-        },
-      // {
-      //   withCredentials: true
-      // }
-    );
+        }, {
+          withCredentials: false
+        });
       });
       const responses = await Promise.all(promises);
       const data = responses.map(res => res.data);
       setResults(data);
+      await Log('frontend', 'info', 'submit', 'URLs shortened successfully');
     } catch (err) {
+      await Log('frontend', 'error', 'submit', `Submission failed: ${err.message}`);
       console.error(err);
       alert('Error while shortening URLs');
     }
@@ -53,10 +57,16 @@ const UrlShortener = () => {
   const fetchStats = async () => {
     try {
       const shortcode = prompt('Enter shortcode to fetch stats:');
-      if (!shortcode) return;
+      if (!shortcode) {
+        await Log('frontend', 'warn', 'stats', 'Stats fetch cancelled');
+        return;
+      }
+      await Log('frontend', 'info', 'stats', `Fetching stats for: ${shortcode}`);
       const res = await axios.get(`http://localhost:5000/shorturls/${shortcode}`);
       setStats([res.data]);
+      await Log('frontend', 'info', 'stats', 'Stats fetched successfully');
     } catch (err) {
+      await Log('frontend', 'error', 'stats', `Stats fetch failed: ${err.message}`);
       console.error(err);
       alert('Error fetching stats');
     }
@@ -65,6 +75,9 @@ const UrlShortener = () => {
   const addUrlField = () => {
     if (urls.length < 5) {
       setUrls([...urls, { originalUrl: '', validity: '', shortcode: '' }]);
+      Log('frontend', 'info', 'addField', 'Added new URL input field');
+    } else {
+      Log('frontend', 'warn', 'addField', 'Attempted to add more than 5 fields');
     }
   };
 

@@ -1,24 +1,30 @@
-// urlShortenerService.js
 import express from 'express';
 import cors from 'cors';
 import { nanoid } from 'nanoid';
 import dayjs from 'dayjs';
+import { Log } from './logger.js'; 
 
 const app = express();
 app.use(express.json());
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: false,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
 
-// In-memory store (mock DB)
+
 const urls = new Map();
-const clicks = new Map();
 
-// POST: Create Short URL
-app.post('/shorturls', (req, res) => {
-    console.log('Received request to create short URL:', req.body);
+
+app.post('/shorturls', async (req, res) => {
   const { url, validity = 30, shortcode } = req.body;
 
+  await Log('backend', 'info', 'create-url', `Incoming POST /shorturls with body: ${JSON.stringify(req.body)}`);
+
   if (!url || typeof url !== 'string') {
+    await Log('backend', 'error', 'create-url', 'Invalid or missing URL');
     return res.status(400).json({ error: 'Invalid or missing URL' });
   }
 
@@ -26,6 +32,7 @@ app.post('/shorturls', (req, res) => {
   const shortLink = `http://localhost:5000/${code}`;
 
   if (urls.has(code)) {
+    await Log('backend', 'warn', 'create-url', `Duplicate shortcode: ${code}`);
     return res.status(409).json({ error: 'Shortcode already exists' });
   }
 
@@ -41,17 +48,23 @@ app.post('/shorturls', (req, res) => {
     clickData: []
   });
 
+  await Log('backend', 'info', 'create-url', `Short URL created: ${shortLink} (expires at ${expiry})`);
+
   return res.status(201).json({ shortLink, expiry });
 });
 
-// GET: Redirect to original URL
-app.get('/:shortcode', (req, res) => {
+
+app.get('/:shortcode', async (req, res) => {
   const code = req.params.shortcode;
   const record = urls.get(code);
 
-  if (!record) return res.status(404).json({ error: 'Shortcode not found' });
+  if (!record) {
+    await Log('backend', 'error', 'redirect', `Shortcode not found: ${code}`);
+    return res.status(404).json({ error: 'Shortcode not found' });
+  }
 
   if (dayjs().isAfter(record.expiry)) {
+    await Log('backend', 'warn', 'redirect', `Expired link accessed: ${code}`);
     return res.status(410).json({ error: 'Link expired' });
   }
 
@@ -62,15 +75,22 @@ app.get('/:shortcode', (req, res) => {
     ip: req.ip
   });
 
+  await Log('backend', 'info', 'redirect', `Redirecting shortcode: ${code} to ${record.originalUrl}`);
+
   return res.redirect(record.originalUrl);
 });
 
-// GET: Stats for short URL
-app.get('/shorturls/:shortcode', (req, res) => {
+
+app.get('/shorturls/:shortcode', async (req, res) => {
   const code = req.params.shortcode;
   const record = urls.get(code);
 
-  if (!record) return res.status(404).json({ error: 'Shortcode not found' });
+  await Log('backend', 'info', 'stats', `Stats requested for: ${code}`);
+
+  if (!record) {
+    await Log('backend', 'error', 'stats', `Shortcode not found: ${code}`);
+    return res.status(404).json({ error: 'Shortcode not found' });
+  }
 
   return res.json({
     shortUrl: record.shortLink,
@@ -85,4 +105,6 @@ app.get('/shorturls/:shortcode', (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`URL Shortener running at http://localhost:${PORT}`));
+app.listen(PORT, async () => {
+  console.log(`URL Shortener running at http://localhost:${PORT}`);
+});
